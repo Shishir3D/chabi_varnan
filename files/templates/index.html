@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Description</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #121212;
+        color: #e0e0e0;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        flex-direction: column;
+      }
+      .chat-container {
+        width: 100%;
+        max-width: 600px;
+        background-color: #1e1e1e;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .chat-header {
+        background-color: #333;
+        color: #e0e0e0;
+        padding: 10px;
+        text-align: center;
+        font-size: 18px;
+      }
+      .chat-body {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .chat-footer {
+        display: flex;
+        padding: 10px;
+        border-top: 1px solid #444;
+      }
+      .chat-footer input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #444;
+        border-radius: 5px;
+        margin-right: 10px;
+        background-color: #333;
+        color: #e0e0e0;
+      }
+      .chat-footer button {
+        background-color: #e0e0e0;
+        color: rgb(10, 10, 10);
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-right: 10px;
+      }
+      .chat-footer button:hover {
+        background-color: #0056b3;
+      }
+      .message {
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #333;
+        color: #e0e0e0;
+      }
+      .message.user {
+        background-color: #ffffff;
+        color: rgb(0, 0, 0);
+        align-self: flex-end;
+      }
+      .message.bot {
+        background-color: #444;
+        color: #e0e0e0;
+        align-self: flex-start;
+      }
+      video {
+        border: 2px solid #444;
+        border-radius: 5px;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="chat-header">Capture Image and Get Description</div>
+      <div class="chat-body" id="chat-body">
+        <video id="video" width="320" height="240" autoplay></video>
+        <canvas
+          id="canvas"
+          width="320"
+          height="240"
+          style="display: none"
+        ></canvas>
+        <div class="message bot" id="description">
+          Description will appear here...
+        </div>
+      </div>
+      <div class="chat-footer">
+        <button id="capture">Capture</button>
+        <button id="flip">Flip Camera</button>
+        <button id="speak">Speak</button>
+      </div>
+    </div>
+
+    <script>
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("canvas");
+      const captureButton = document.getElementById("capture");
+      const flipButton = document.getElementById("flip");
+      const speakButton = document.getElementById("speak");
+      const descriptionText = document.getElementById("description");
+      const chatBody = document.getElementById("chat-body");
+
+      let currentStream = null;
+      let currentFacingMode = "user"; // Start with front camera
+
+      // Function to stop the current video stream
+      function stopCurrentStream() {
+        if (currentStream) {
+          currentStream.getTracks().forEach((track) => track.stop());
+        }
+      }
+
+      // Function to start video stream with specified constraints
+      function startVideoStream(facingMode) {
+        stopCurrentStream(); // Stop the current stream before switching
+
+        const constraints = {
+          video: { facingMode: facingMode },
+        };
+
+        navigator.mediaDevices
+          .getUserMedia(constraints)
+          .then((stream) => {
+            currentStream = stream;
+            video.srcObject = stream;
+          })
+          .catch((error) => {
+            console.error("Error accessing the camera:", error);
+          });
+      }
+
+      // Start with the front camera
+      startVideoStream(currentFacingMode);
+
+      // Capture image and send it to the backend
+      captureButton.addEventListener("click", () => {
+        const context = canvas.getContext("2d");
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          const formData = new FormData();
+          formData.append("image", blob, "image.jpg");
+
+          fetch("/upload", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              const userMessage = document.createElement("div");
+              userMessage.className = "message user";
+              userMessage.textContent =
+                "Image captured and sent for description.";
+              chatBody.appendChild(userMessage);
+
+              const botMessage = document.createElement("div");
+              botMessage.className = "message bot";
+              botMessage.textContent = data.description;
+              chatBody.appendChild(botMessage);
+
+              descriptionText.textContent = data.description;
+            })
+            .catch((error) => console.error("Error:", error));
+        }, "image/jpeg");
+      });
+
+      // Flip camera
+      flipButton.addEventListener("click", () => {
+        currentFacingMode =
+          currentFacingMode === "user" ? "environment" : "user";
+        startVideoStream(currentFacingMode);
+      });
+
+      // Play audio
+      speakButton.addEventListener("click", () => {
+        fetch("/static/output.mp3")
+          .then((response) => response.blob())
+          .then((blob) => {
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
+            audio.play();
+          })
+          .catch((error) => console.error("Error fetching audio:", error));
+      });
+    </script>
+  </body>
+</html>
