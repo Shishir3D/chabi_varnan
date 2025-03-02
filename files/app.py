@@ -5,6 +5,10 @@ from werkzeug.utils import secure_filename
 from PIL import Image
 from gtts import gTTS
 
+API_KEY = ""
+with open("API_KEY.txt", "r") as file:
+    API_KEY = file.read()
+
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
 UPLOAD_FOLDER = 'uploads'
@@ -12,7 +16,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Configure Gemini API
-genai.configure(api_key="")
+genai.configure(api_key=API_KEY)
 
 # Serve the HTML page
 @app.route('/')
