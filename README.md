@@ -16,6 +16,10 @@ cd chabi_varnan
 ```
 
 ```
+source bin/activate
+```
+
+```
 pip install -r requirements.txt
 ```
 
